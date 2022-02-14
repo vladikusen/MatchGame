@@ -5,8 +5,10 @@ GridView {
     id: root
     interactive: false
     property int sourceIndex: -1
+    property int bufferIndex: -1
+    property int destinationIndex: -1
 
-    property bool fromMove: false
+    property bool ifThereMatches: true
 
     model: GameBoardModel {
         id: boardModel
@@ -30,11 +32,13 @@ GridView {
             anchors.margins: 5
 
             color: model.color
+
         }
     }
 
+
     function checkMoves(){
-        if(boardModel.movesCounter == 0){
+        if(boardModel.movesCounter === 0){
             defeatMessage.open()
         }
     }
@@ -50,10 +54,12 @@ GridView {
             }
             else{
                 if(sourceIndex !== root.indexAt(mouseX, mouseY)){
-                    boardModel.move(sourceIndex, root.indexAt(mouseX, mouseY))
+                    destinationIndex = root.indexAt(mouseX, mouseY)
+                    bufferIndex = sourceIndex
+                    boardModel.move(sourceIndex, destinationIndex)
                     if(!boardModel.checkIfThereIsMatches()){
+                        ifThereMatches = false
                         boardModel.increaseMoveCounter()
-                        boardModel.move(sourceIndex, root.indexAt(mouseX, mouseY))
                     }
 
                     sourceIndex = -1
@@ -78,6 +84,11 @@ GridView {
        }
        onRunningChanged: {
            if(running === false){
+               if(!ifThereMatches){
+                   boardModel.move(destinationIndex, bufferIndex)
+                   ifThereMatches = true
+               }
+
                boardModel.checkBoard()
                outerCounter = boardModel.pointsCounter
                outerMovesCounter = boardModel.movesCounter
