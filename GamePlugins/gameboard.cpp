@@ -3,7 +3,7 @@
 GameBoard::GameBoard(QObject* parent)
     : QAbstractListModel{parent}
 {
-    QFile file("/home/vshkilniuk/TileMatchingGame/TileGame/colorsVariety.json");
+    QFile file("/home/vshkilniuk/Documents/folder/MatchGame/TileGame/colorsVariety.json");
 
     if(!file.open(QIODevice::ReadOnly | QIODevice::Text)){
         return;
@@ -15,7 +15,6 @@ GameBoard::GameBoard(QObject* parent)
     QJsonObject jObject = colorSet.object();
 
     m_rows = jObject["rows"].toInt();
-    m_rows++;
 
     m_columns = jObject["columns"].toInt();
 
@@ -27,13 +26,11 @@ GameBoard::GameBoard(QObject* parent)
         m_colorsArray.push_back(getRandomColor());
     }
 
-    bool was = checkBoard();
-    while(was){
-        was = checkBoard();
-    }
-    m_pointsCounter = 0;
-    m_movesCounter = 15;
+    checkBoardInCycle();
 
+
+    m_pointsCounter = 0;
+    m_movesCounter = 0;
 }
 
 int GameBoard::rowCount(const QModelIndex & parent = QModelIndex()) const
@@ -80,7 +77,7 @@ void GameBoard::move(int sourceIndex, int destinationIndex)
 
         emit rowsMoved(QModelIndex(), sourceIndex, sourceIndex, QModelIndex(), destinationIndex + 1, {});
 
-        m_movesCounter--;
+        m_movesCounter++;
     }
     if(sourceIndex - 1 == destinationIndex){
 
@@ -88,9 +85,10 @@ void GameBoard::move(int sourceIndex, int destinationIndex)
         m_colorsArray.at(sourceIndex) = m_colorsArray.at(destinationIndex);
         m_colorsArray.at(destinationIndex) = buffer;
 
+
         emit rowsMoved(QModelIndex(), sourceIndex, sourceIndex, QModelIndex(), destinationIndex + 1, {});
 
-        m_movesCounter--;
+        m_movesCounter++;
     }
     if(sourceIndex + m_columns == destinationIndex){
 
@@ -101,7 +99,7 @@ void GameBoard::move(int sourceIndex, int destinationIndex)
         emit rowsMoved(QModelIndex(), sourceIndex, sourceIndex, QModelIndex(), destinationIndex + 1, {});
         emit rowsMoved(QModelIndex(), destinationIndex - 1, destinationIndex - 1, QModelIndex(), sourceIndex, {});
 
-        m_movesCounter--;
+        m_movesCounter++;
     }
     if(sourceIndex - m_columns == destinationIndex){
 
@@ -112,7 +110,7 @@ void GameBoard::move(int sourceIndex, int destinationIndex)
         emit rowsMoved(QModelIndex(), sourceIndex, sourceIndex, QModelIndex(), destinationIndex, {});
         emit rowsMoved(QModelIndex(), destinationIndex + 1, destinationIndex + 1, QModelIndex(), sourceIndex + 1, {});
 
-        m_movesCounter--;
+        m_movesCounter++;
     }
 
 }
@@ -144,7 +142,9 @@ std::pair<int, int> GameBoard::findMatchInRow(int currentRow)
             break;
         }
     }
-
+    if(matchStart / m_columns == 0){
+        m_ifFirstRow = true;
+    }
     return {matchStart, matchCounter};
 }
 
@@ -234,6 +234,7 @@ void GameBoard::moveColumnToTop(int index)
                 emit rowsMoved(QModelIndex(), currentRow - m_columns, currentRow - m_columns, QModelIndex(), currentRow + 1, {});
                 emit rowsMoved(QModelIndex(), currentRow - 1, currentRow - 1, QModelIndex(), currentRow - m_columns, {});
 
+
                 currentRow -= m_columns;
             }
         }
@@ -259,6 +260,7 @@ bool GameBoard::exchangeBlanks()
 
 bool GameBoard::checkRow(int row)
 {
+    m_ifFirstRow = false;
     fillRowWithBlank(findMatchInRow(row));
     moveRowToTop(row);
     bool was = exchangeBlanks();
@@ -277,27 +279,43 @@ bool GameBoard::checkColumn(int column)
 
 bool GameBoard::checkRows()
 {
-    bool was = false;
-
     for(int i = 0; i < m_rows; i++){
         if(checkRow(i)){
-            was = true;
+            return true;
         }
     }
 
-    return was;
+    return false;
 }
 
-bool GameBoard::checkColumns(){
-    bool was = false;
-
+bool GameBoard::checkColumns()
+{
     for(int i = 0; i < m_columns; i++){
         if(checkColumn(i)){
-            was = true;
+            return true;
         }
     }
 
-    return was;
+    return false;
+}
+
+void GameBoard::checkBoardInCycle()
+{
+    bool was = checkBoard();
+    if(!was){
+        was = !checkIfThereIsValidMoves();
+    }
+    while(was){
+        was = checkBoard();
+        if(!was){
+            was = !checkIfThereIsValidMoves();
+        }
+    }
+}
+
+bool GameBoard::ifFirstRow() const
+{
+    return m_ifFirstRow;
 }
 
 bool GameBoard::checkBoard()
@@ -327,8 +345,12 @@ std::string GameBoard::getRandomColor()
     return m_colorsSet.at(0);
 }
 
-bool GameBoard::checkIfThereIsMatches()
+bool GameBoard::checkIfThereIsMatches(int sourceIndex, int destinationIndex)
 {
+    std::string buffer = m_colorsArray.at(sourceIndex);
+    m_colorsArray.at(sourceIndex) = m_colorsArray.at(destinationIndex);
+    m_colorsArray.at(destinationIndex) = buffer;
+
     bool is = false;
     for(int i = 0; i < m_rows; i++){
         if(findMatchInRow(i).first != -1){
@@ -342,6 +364,10 @@ bool GameBoard::checkIfThereIsMatches()
         }
     }
 
+    buffer = m_colorsArray.at(sourceIndex);
+    m_colorsArray.at(sourceIndex) = m_colorsArray.at(destinationIndex);
+    m_colorsArray.at(destinationIndex) = buffer;
+
     return is;
 }
 
@@ -352,14 +378,33 @@ void GameBoard::newGame()
         m_colorsArray.at(i) = getRandomColor();
     }
 
-    bool was = checkBoard();
-    while(was){
-        was = checkBoard();
-    }
+    checkBoardInCycle();
 
     m_pointsCounter = 0;
-    m_movesCounter = 15;
+    m_movesCounter = 0;
     emit dataChanged(createIndex(0, 0), createIndex(m_colorsArray.size() - 1, 0));
+}
+
+bool GameBoard::checkIfThereIsValidMoves()
+{
+    bool was = false;
+    for(int i = 0; i < m_colorsArray.size() - 1 ; i++){
+        if(i % (m_columns - 1) != 0){
+            if(checkIfThereIsMatches(i, i + 1)){
+                was = true;
+            }
+        }
+    }
+
+    for(int i = 0; i < m_colorsArray.size(); i++ ){
+        if(i / m_columns != m_rows - 1){
+            if(checkIfThereIsMatches(i, i + m_columns)){
+                was = true;
+            }
+        }
+    }
+
+    return was;
 }
 
 int GameBoard::movesCounter() const

@@ -7,7 +7,7 @@ Rectangle {
     visible: true
 
     property int outerCounter: 0
-    property int outerMovesCounter: 15
+    property int outerMovesCounter: 0
     color: "#b6aef4"
 
     NewGame {

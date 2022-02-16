@@ -21,6 +21,7 @@ class GameBoard : public QAbstractListModel
     Q_PROPERTY(int columns READ columns CONSTANT)
     Q_PROPERTY(int pointsCounter READ pointsCounter CONSTANT)
     Q_PROPERTY(int movesCounter READ movesCounter CONSTANT)
+    Q_PROPERTY(int ifFirstRow READ ifFirstRow CONSTANT)
 public:
     GameBoard(QObject* parent = nullptr);
 
@@ -34,15 +35,18 @@ public:
 
     Q_INVOKABLE void move(int, int);
     Q_INVOKABLE bool checkBoard();
-    Q_INVOKABLE bool checkIfThereIsMatches();
+    Q_INVOKABLE bool checkIfThereIsMatches(int, int);
     Q_INVOKABLE void newGame();
     Q_INVOKABLE void increaseMoveCounter() { m_movesCounter++; }
+    Q_INVOKABLE bool checkIfThereIsValidMoves();
 
 
     int columns() const;
     int rows() const;
     int pointsCounter() const;
     int movesCounter() const;
+
+    bool ifFirstRow() const;
 
 private:
     void shuffle();
@@ -72,6 +76,10 @@ private:
 
     bool checkRows();
     bool checkColumns();
+
+    void checkBoardInCycle();
+
+    bool m_ifFirstRow;
 };
 
 #endif // GAMEBOARD_H
